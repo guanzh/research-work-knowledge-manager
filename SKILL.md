@@ -160,7 +160,7 @@ ingest → classify → extract → evaluate → link → update → plan → re
 
 | 步骤 | 做什么 | 产出 |
 |------|--------|------|
-| **ingest** | 登记资料，生成 file_id，计算 checksum，记录 provenance | source_registry 新条目 |
+| **ingest** | 登记资料，生成 file_id，计算 checksum，记录 provenance，删除 inbox 原始文件 | source_registry 新条目 |
 | **classify** | 判断 source_type（13 种之一）、content_type、所属 project | source_registry 字段填充 |
 | **extract** | 提取主张、数据、方法、结论、限制、问题 | 临时 extracted_units |
 | **evaluate** | 判断可信度、相关性、时效性、impact_on_goal | impact 评估 |
@@ -266,6 +266,8 @@ research_workspace/
 
 ```
 registry/source_registry.jsonl     # 空数组 []
+registry/work_registry.jsonl       # 空数组 []  — 三层 ID 体系必需
+registry/version_registry.jsonl    # 空数组 []  — 三层 ID 体系必需
 registry/claim_matrix.jsonl        # 空数组 []
 registry/evidence_matrix.jsonl     # 空数组 []
 registry/gap_register.jsonl        # 空数组 []
@@ -291,7 +293,7 @@ wiki/index.md                      # Wiki 索引
 3. **不自行决定**：遇到版本取舍、数据矛盾等需要专业判断的事项，写入 decision_log 等待用户决定
 4. **每次操作追加 impact_log**：记录时间、来源、影响维度（claims/gaps/tasks）
 5. **Wiki 必须引用 file_id 和 claim_id**：不写「某个文件」「之前的数据」等模糊表述
-6. **Windows 非 ASCII 路径**：含中文路径时用 `execute_code` + Python 完成文件操作
+6. **Windows 非 ASCII 路径**：含中文路径时用 `execute_code` + Python 完成文件操作。获取文件名一律用 `os.listdir()` 而非手写字符串（中文引号 `""` 与 ASCII `"` 肉眼不可区分），ingest 成功后用 `os.remove()` 删除 inbox 中的原始文件。
 
 ## Hermes Integration
 
@@ -312,6 +314,7 @@ wiki/index.md                      # Wiki 索引
 6. **不记录冲突**：发现不一致时私下修正而不写入 conflict_log
 7. **替用户做决定**：需要专业判断的事项写入 decision_log，不自行裁决
 8. **Terminal 中文路径失败**：用 `execute_code` + Python `os`/`shutil`/`hashlib`
+   - **特别注意中文引号**：文件名含 `""`（Unicode 全角引号）时，手写字符串常错用 ASCII `"` 导致 `FileNotFoundError`。解决：一律用 `os.listdir()` 获取精确文件名再操作，不要凭肉眼写出路径字符串。
 
 ## Verification Checklist
 
