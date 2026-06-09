@@ -443,6 +443,8 @@ research_workspace/
 
 ## 最小可行启动 (MVP)
 
+> **核心原则：如果目标文件夹已有文件，自动扫描并 ingest，不能忽略。**
+
 最少先建立：
 
 ```
@@ -460,7 +462,50 @@ registry/impact_log.md             # "# Impact Log"
 wiki/index.md                      # Wiki 索引
 ```
 
+**建立目录后，立即执行：**
+0. **扫描目标文件夹**：用 `os.walk()` 列出目标文件夹中所有已有文件（排除新创建的 registry/ 和 wiki/ 目录自身）。
+   - 如果 **无已有文件** → 正常启动，等待新资料进入 inbox。
+   - 如果 **有 1–9 个已有文件** → 走下面第 0a 步"简单 ingest"。
+   - 如果 **有 10+ 个已有文件或包含完整手稿** → 提示用户走下方"成熟项目批量初始化"流程（更高效）。
+0a. **简单 ingest（1–9 个文件）**：逐个文件走通用 8 步 pipeline 的 ingest + classify 两步——生成 file_id，填入 source_registry，判断 source_type，记录 provenance，将文件移到 sources/。不提取 claim/evidence/gap（文件量少，且用户没有明确要求深入分析时，先 regist 即可，后续走正常 pipeline 逐步提取）。
+0b. **写入 impact_log**：记录初始化时自动 ingested 的几个文件。
+
 > 更多渐进采用路径见 `assets/adoption-self-assessment.md`
+
+### 成熟项目批量初始化（文件夹已有文件时的通用流程）
+
+> **适用范围：目标文件夹已有任何文件（不限于"成熟项目"），且用户希望一次性完成全部 ingest。**
+
+当目标文件夹已有文件时（无论文件数量多少），不走逐个 source 的 8 步 pipeline——因为逐个 ingest 效率低、输出碎片化。应走**批量初始化流程**，一次性完成所有文件的登记和处理：
+
+1. **创建目录骨架**：同 MVP，建立 inbox/sources/registry/wiki/outputs/releases/archive
+2. **批量扫描全部文件**：用 `os.walk()` 列出所有文件，按 source_type 归类（manuscript_draft / dataset / code / figure / annotation / meeting_note 等）
+3. **确定 version 链**：从文件名（v3→v4→v5）和目录结构推断手稿和分析流程的版本演进，创建 work_registry 和 version_registry
+4. **提取全部 claims**：如果包含手稿，读取当前 active 手稿全文，从摘要、引言研究问题、结果、讨论和结论中提取论文级主张（通常 6–12 条），一次性写入 claim_matrix。每条 claim 标注 evidence_strength（根据是否有定量数据支撑判断 strong/medium/low）。如果无手稿，跳过此步。
+5. **提取全部 evidence**：从 analysis_summary.json（或等价汇总文件）、evidence_chain.md 和手稿结果表中提取证据单元，一次性写入 evidence_matrix。标注 reliability（verified = 有定量数字可检验 / needs_review = 仅手稿论证）。如果无上述文件，跳过此步。
+6. **提取全部 gaps**：交叉阅读手稿的"待补充"段落、evidence_chain 中的审稿风险预判和数据契约，按 manuscript_completeness / method_description / data_completeness / analysis_gap / decision_pending 分类，一次性写入 gap_register
+7. **创建 tasks**：从 gaps 反向生成 task（每个 high-priority gap 生成 1–2 个 task），一次性写入 task_backlog
+8. **写入 decision_log**：需要作者判断的事项（目标期刊、数据脱敏方案、异常值处理等）写入 decision_log
+9. **更新 impact_log**：记录初始化操作
+10. **输出 Evolution Report**：一次性生成综合报告，包含所有注册表统计、claim/evidence/gap 全景、优先级排序的下一步行动
+
+**初始化后自动 ingest 的后续处理**：已 ingest 的文件应移入 `sources/`（或按 workspace 重组流程处理），确保 `inbox/` 干净。
+
+**关键区别 vs 8 步 pipeline**：
+| 维度 | 单源 8 步 pipeline | 成熟项目批量初始化 |
+|------|-------------------|-------------------|
+| 输入 | 1 个新文件 | 10–50+ 个已有文件 |
+| claim 提取 | 从新资料提取 1–3 条影响 | 从手稿全文提取全部 claim (6–12) |
+| 版本链 | 不涉及 | 必须从文件名推断并创建 |
+| evidence 提取 | 单源证据 | 从分析汇总+证据链批量提取 |
+| 执行策略 | 串行逐 source | 并行一次性填充所有 5 表 |
+| 输出 | 每次 1 份简短报告 | 1 份综合全景报告 |
+
+**警惕**：
+- 不要逐个文件走 8 步 pipeline（会有 30+ 轮输出，信息碎片化）
+- 不要跳过 work_registry/version_registry（成熟项目一定有版本演进历史）
+- claim 提取不要只从摘要抄——要通读引言（研究问题）、结果（定量结论）和讨论（主张边界）全段
+- gaps 提取不要只看手稿"待补充"——evidence_chain 的审稿风险和数据契约是同等重要的缺口来源
 
 ## Workspace 重组流程（已存在混乱工作区的整理）
 
