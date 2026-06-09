@@ -1,7 +1,7 @@
 ---
 name: goal-driven-research-system
 description: Use when any new research input (paper, data, code, notes, experiment, meeting, draft, web page, search result) enters the project. Evaluates impact on research goal, claims, evidence, gaps, and tasks. Maintains source registry, claim matrix, evidence matrix, gap register, and task backlog to continuously evolve the research project toward a defined output. Formerly research-work-knowledge-manager — the old name is kept as an alias.
-version: 2.0.0
+version: 2.5.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -70,6 +70,7 @@ v2.0 的核心数据结构。任何新资料进入后，最终都要写入这五
 | **evidence_matrix** | `registry/evidence_matrix.jsonl` | 每个资料提供了什么可用的证据单元？ |
 | **gap_register** | `registry/gap_register.jsonl` | 还缺什么？ |
 | **task_backlog** | `registry/task_backlog.jsonl` | 下一步做什么？ |
+| **submission_log** | `registry/submission_log.jsonl` | 这篇论文投到哪里了？审稿到哪一轮了？ |
 
 进化逻辑：
 ```
@@ -95,6 +96,23 @@ new source → affects claims → provides evidence → closes/opens gaps → cr
 | `audio_transcript` | 访谈/会议转写 | 观点、证据、待确认 |
 
 > `source_type` 是资料的**原始形态**，`content_type` 是资料的**科研用途分类**。两者独立，例：source_type=dataset, content_type=camera_trap_data
+
+### content_type 扩展（生态统计专用）
+
+以下为 `content_type` 的可能取值，用于更精确标注 `source_type = dataset` 或 `code` 的科研用途：
+
+- `camera_trap_data` — 红外相机照片/视频及标注
+- `acoustic_monitoring_data` — 被动声学录音及频谱
+- `transect_survey_data` — 样线/样点调查记录
+- `occupancy_model_results` — occupancy/detection 模型输出
+- `multi_species_abundance_model` — 多物种丰度/群落模型结果
+- `bayesian_hierarchical_model` — 贝叶斯分层模型（如 HMSC）输出
+- `distance_sampling_results` — distance sampling 密度估计
+- `species_distribution_model` — SDM/栖息地适宜性结果
+- `genetic_data` — eDNA/metabarcoding/微卫星数据
+- `remote_sensing_data` — 卫星/无人机遥感数据
+- `patrol_data` — 巡护/威胁监测记录
+- `behavioral_data` — 行为观察/活动节律数据
 
 ### 保留的 v1.x 表
 
@@ -137,6 +155,44 @@ new source → affects claims → provides evidence → closes/opens gaps → cr
   "related_claim": "C001",
   "evidence_direction": "supports",
   "reliability": "needs_review"
+}
+```
+### 第六张表：submission_log（投稿追踪）
+
+| 表 | 文件 | 回答的问题 |
+|----|------|-----------|
+| **submission_log** | `registry/submission_log.jsonl` | 这篇论文投到哪里了？审稿到哪一轮了？ |
+
+```json
+{
+  "submission_id": "S20260609001",
+  "manuscript_work_id": "W_gibbon_acoustic_2025",
+  "journal": "Biological Conservation",
+  "status": "drafting|submitted|under_review|revised|accepted|rejected",
+  "round": 1,
+  "submitted_at": "2026-06-09",
+  "decision": "major_revision|minor_revision|accept|reject|null",
+  "decision_at": null,
+  "review_files": ["F20260609021", "F20260609022"],
+  "response_file": null,
+  "linked_claims": ["C010", "C011", "C015"],
+  "notes": ""
+}
+```
+
+- `manuscript_work_id`：论文是一个长期 work 对象
+- `linked_claims`：该论文中最核心的 3–5 条主张，方便从投稿记录直接跳回 claim_matrix
+- Agent 规则：用户说"这篇稿子投了 X 期刊"时，自动创建 submission_log 条目；审稿意见返回时，review_files 登记审稿文件
+
+### manuscript_draft 的投稿相关字段增强
+
+对 `source_type = manuscript_draft` 记录增加可选字段：
+
+```json
+"manuscript_meta": {
+  "intended_journal": "Biological Conservation",
+  "stage": "draft|submitted|revised|accepted|rejected",
+  "linked_submission_id": "S20260609001"
 }
 ```
 
@@ -197,18 +253,109 @@ sections affected, suggested changes
 - [ ] D008: ...
 ```
 
+> 填充示例见 `assets/evolution-report-example.md`。Agent 生成报告时应参照此例的粒度和风格：每个字段给具体值而非占位符，Human Review Needed 用 Dxxx 编号。
+
 ## 不同 source_type 的专项处理
 
-> 详细规则见 `references/source-type-handlers.md`
+以下为 13 种 source_type 在 pipeline 的 extract 和 link 步骤中的专项规则。每种包含提取内容、关键处理规则、典型警惕项。
 
-| source_type | 关键处理 |
-|-------------|---------|
-| **dataset** | 建立 provenance 链：generated_by → cleaned_by → analyzed_by → used_in_figure → used_in_claim |
-| **code** | 不与数据孤立登记，建立 code↔data↔figure↔result 关系 |
-| **meeting_note** | 提取决策→decision_log，质疑→影响 claim，待办→task_backlog |
-| **manuscript_draft** | 进入后立即一致性检查：引用是否过期、与 wiki 是否一致 |
-| **search_result** | 保存快照、访问日期、原始链接（网页易变） |
-| **literature_pdf** | 提取方法/结论/局限 → 关联到 claim 作为 supporting/challenging |
+### dataset
+- **提取**: 数据来源、版本、变量列表、样本量、缺失值、异常值、处理流程、对应 code file_id
+- **处理**: 建立 provenance 链 generated_by → cleaned_by → analyzed_by → used_in_figure → used_in_claim
+- **警惕**: 不建立 provenance 链的 dataset 无法追溯分析结果来源
+
+### code
+- **提取**: 代码目的、输入/输出 file_id、依赖环境、对应数据版本、生成图表、支持结果
+- **处理**: 代码不与数据孤立登记，建立 code↔data↔figure↔result 关系
+- **警惕**: 登记 code 时只看文件名不读内容，遗漏依赖关系
+
+#### R 生态专项：renv / targets 支持
+
+当 `source_type = code` 且文件位于 R 项目目录中时：
+
+1. 检测 `renv.lock`：
+   - 若存在，计算 checksum 并写入该 code 文件的 provenance 中：
+   ```json
+   "provenance": {
+     "origin": "local_repo",
+     "env_lockfile": "F20260609099"
+   }
+   ```
+   - 同时登记 renv.lock 本身为 source_type=code 的独立条目
+
+2. 检测 `_targets.R` 或 `_drake.R`：
+   - 读取文件，识别 `tar_target()` 或 `drake_plan()` 中定义的 target 名称
+   - 每个 target 生成一个 work_id（如 `W_acoustic_model_target_occupancy`）
+   - dataset / figure 的 provenance 中增加字段：
+   ```json
+   "generated_by_target": "W_acoustic_model_target_occupancy"
+   ```
+   - 目的：未来回看结果时，可追溯到 "哪条 pipeline 的哪个 target 在什么包环境下产出"
+
+### meeting_note
+- **提取**: 决定→decision_log, 质疑→claim_matrix.challenging, 待办→task_backlog
+- **处理**: 会议记录同时影响 decision_log + claim_matrix + gap_register + task_backlog
+- **警惕**: 只提取待办事项，忽略会议中提出的质疑（应写入 challenging_sources）
+
+### manuscript_draft
+- **提取**: 论文结构、核心论点、缺失引用、过强表述、证据不足段落
+- **处理**: 进入后立即一致性检查：引用是否过期、与 wiki 是否一致
+- **警惕**: 草稿进入后只 regist 不做检查，导致过期引用残留
+
+#### RMarkdown / Quarto 一体化
+
+当 `source_type = manuscript_draft` 且文件扩展名为 `.Rmd` 或 `.qmd` 时：
+
+- 自动视为**复合 source**，同时在 source_registry 中登记两条：
+  - 一条 `source_type = manuscript_draft`（追踪论文内容）
+  - 一条 `source_type = code`（追踪运行该文档产生的 figures/tables）
+- 两者共享同一个 `work_id`，通过 `linked_code` / `linked_manuscript` 字段互相关联
+- code 条目中记录：knitr/Quarto 版本、使用的 R packages、生成的 figure/table file_id 列表
+
+### search_result
+- **提取**: 搜索问题/日期/关键词、来源链接（保存快照）、筛选标准、可信度
+- **处理**: 网页易变，保存快照和访问日期
+- **警惕**: 仅保存链接不保存快照，后续链接失效无法回溯
+
+### literature_pdf
+- **提取**: 研究问题、方法、核心结论、引用价值、局限
+- **处理**: 关联到 claim 作为 supporting_sources 或 challenging_sources
+- **警惕**: 只记 supporting 不记 challenging，破坏证据平衡
+
+### web_page
+- **提取**: 观点、来源可信度、发布时间、原始链接
+- **处理**: 同 search_result，保存快照和访问日期
+- **警惕**: 不判断来源可信度（个人博客 vs 机构报告）
+
+### experiment_log
+- **提取**: 条件、过程、结果、异常、设备 ID、操作者
+- **处理**: 关联到对应 dataset 和 code，建立实验→数据→分析链条
+- **警惕**: 实验记录中的异常被忽略（可能是重要发现）
+
+### figure
+- **提取**: 来源数据 file_id、生成方法（代码/工具）、图表意图
+- **处理**: provenance 中必须包含 generated_by_code 和 source_data
+- **警惕**: 图表只登记不追溯来源数据，无法复现
+
+### annotation
+- **提取**: 个人判断、问题、想法、与 claim 的关联
+- **处理**: 个人批注是"待验证"级别，不直接作为 evidence
+- **警惕**: 批注直接当作证据使用
+
+### email_or_message
+- **提取**: 决策、要求、修改建议、截止日期
+- **处理**: 决策→decision_log，要求→task_backlog，修改建议→claim 或 manuscript
+- **警惕**: 非正式沟通中的建议直接改写 claim
+
+### external_report
+- **提取**: 背景、数据、论证、风险、作者/机构立场
+- **处理**: 标注来源可信度和潜在 bias
+- **警惕**: 技术报告当作 peer-reviewed 论文级别引用
+
+### audio_transcript
+- **提取**: 观点、证据、待确认事项、说话人角色
+- **处理**: 转写内容属"待确认"级别，关键信息需与说话人核实
+- **警惕**: 转写错误导致错误引用观点
 
 ## 日常使用任务
 
@@ -237,6 +384,39 @@ Agent 检查：source_registry 版本链完整 → claim_matrix 每条有证据 
 
 Agent 列出：新增 source → 影响的 claim → 关闭的 gap → 新开的 gap → 创建的 task → pending decision。
 
+### 投稿前一致性检查
+
+> 「对 `W_xxx` 这篇稿子做投稿前一致性检查。」
+
+Agent 步骤：
+
+1. 从 work_registry 找到 W_xxx 对应的 active manuscript_draft file_id
+2. 从 claim_matrix 拉出所有 status != 'unsupported'、且被该稿子引用的 claim
+3. 逐条检查：
+   - 每个 claim 是否至少有一个 supporting evidence（evidence_direction = 'supports'）
+   - 是否存在 evidence 标记 reliability='needs_review' 但已在正文中被引用为事实
+   - figure/table 的 source_file_id 是否均为 active version（version_registry 中 status='active'）
+   - 引用文献是否在 source_registry 中均有登记（无 ghost citations）
+4. 输出 `outputs/pre_submission_check_W_xxx_YYYYMMDD.md`：
+
+```markdown
+# 投稿前一致性检查 — W_example
+
+## Claims Without Supporting Evidence
+- C012: "..." — 无 supporting evidence
+
+## Unreliable Evidence Used as Fact
+- E008 (reliability=needs_review) 被引用于 Discussion ¶3
+
+## Stale Figures/Tables
+- F20250501015 (Figure 2): version V002 非 active，当前 active 为 V004
+
+## Ghost Citations
+- Smith et al. 2023: 在正文引用但未在 source_registry 登记
+
+## Overall: ❌ 不通过 — N issues need resolution before submission
+```
+
 ## 目录结构（v2.0）
 
 ```
@@ -251,6 +431,7 @@ research_workspace/
 │   ├── evidence_matrix.jsonl
 │   ├── gap_register.jsonl
 │   ├── task_backlog.jsonl
+│   ├── submission_log.jsonl
 │   ├── conflict_log.md
 │   ├── decision_log.md
 │   └── impact_log.md
@@ -272,6 +453,7 @@ registry/claim_matrix.jsonl        # 空数组 []
 registry/evidence_matrix.jsonl     # 空数组 []
 registry/gap_register.jsonl        # 空数组 []
 registry/task_backlog.jsonl        # 空数组 []
+registry/submission_log.jsonl       # 空数组 []
 registry/conflict_log.md           # "# Conflict Log"
 registry/decision_log.md           # "# Decision Log"
 registry/impact_log.md             # "# Impact Log"
@@ -283,8 +465,10 @@ wiki/index.md                      # Wiki 索引
 ## Workspace 重组流程（已存在混乱工作区的整理）
 
 > 具体输出模板见 `references/workspace-reorganization-example.md`
+> v1.0→v2.0 升级的 Python 执行模式见 `references/v2-upgrade-execution-patterns.md`
 
 1. 扫描全景 → 2. 识别分析包 → 3. 请求作者确认当前版本 → 4. 建立目录骨架 → 5. 移动原始数据到 sources/ → 6. 归档旧包 → 7. 设当前包 → 8. 登记所有文件到 source_registry → 9. 建 wiki 和 claim_matrix → 10. 清理残留
+10. （若从 v1.0 升级到 v2.0）追加步骤：创建 inbox/outputs/releases → 升级 file_registry 为 source_registry → 创建 claim/evidence/gap/task 四表 → 回填 linked_* → 更新 wiki 引用 → 升级 impact_log
 
 ## Agent 执行约束
 
@@ -294,15 +478,114 @@ wiki/index.md                      # Wiki 索引
 4. **每次操作追加 impact_log**：记录时间、来源、影响维度（claims/gaps/tasks）
 5. **Wiki 必须引用 file_id 和 claim_id**：不写「某个文件」「之前的数据」等模糊表述
 6. **Windows 非 ASCII 路径**：含中文路径时用 `execute_code` + Python 完成文件操作。获取文件名一律用 `os.listdir()` 而非手写字符串（中文引号 `""` 与 ASCII `"` 肉眼不可区分），ingest 成功后用 `os.remove()` 删除 inbox 中的原始文件。
+7. **Memory 写入策略**：完成完整 pipeline 后写入 Memory，但仅写入项目级惯例（workspace 路径映射、敏感数据标记习惯、常用 journal target），不写入具体 file_id / claim_id / task_id 列表，避免 Memory 与 registry 双重来源冲突。
+
+### 人类决策 vs Agent 决策
+
+| 场景 | 由 Agent 决定 | 写入 decision_log 等待人 |
+|------|:---:|:---:|
+| 解析 source_type | ✅ | |
+| 判断数据质量低 | | ✅（记录 Dxxx） |
+| 合并两个版本的分析脚本 | | ✅ |
+| 小幅重命名 wiki 条目 | ✅（但写 impact_log） | |
+| 确定 claim 的 evidence_strength | | ✅ |
+| 生成 file_id | ✅ | |
+| 决定 supersede 旧版本 | | ✅ |
+| 提取 meeting_note 中的待办 | ✅ | |
+| 选择 journal target | | ✅ |
+| 关闭 gap（认定缺口已解决） | | ✅ |
+| 分类 content_type | ✅ | |
+| 判断 source 可信度 | | ✅（记录评估依据） |
 
 ## Hermes Integration
 
-> 详细说明见 `references/hermes-integration.md`
+### Memory：写入什么，不写什么
 
-- **Memory**: 首次在某 workspace 执行时，将项目惯例写入 memory
-- **Cron**: 每周自动 lint（检查 orphan files / broken chains / stale refs / aging decisions）
-- **Curator**: skill 自身版本用 curator 追踪
-- **Session Search**: 回溯历史决策时用 `session_search` 而非重读整个 decision_log
+每次完成一次完整 pipeline 后，向 Hermes Memory 写入项目级惯例，不写入具体数据。
+
+**写入 Memory（惯例/偏好）**：
+- workspace 路径 → project 映射
+- 用户偏好的敏感数据标记习惯
+- 常用 journal target
+- 特定 work_id 的主要 data source 类型（如 "W_gibbon_acoustic_2025 的主要 data source 是 acoustic + camera trap"）
+
+**不写入 Memory（避免与 registry 双重来源冲突）**：
+- 具体 file_id 列表
+- claim_id 列表
+- task_id 列表
+- version 链细节
+
+后续 session 自动加载已写入的惯例，无需用户重复说明。
+
+### Cron：每周自动 Lint + 周报
+
+配置 Cron job（Hermes cronjob 工具），每周自动生成 workspace 健康报告：
+
+**调度**: 每周一 09:00
+**skill**: `goal-driven-research-system`
+**enabled_toolsets**: [terminal, file]
+
+#### 检查规则
+
+1. **孤立资料 (Orphan Sources)**
+   - 扫描 source_registry 中 linked_claims=[] AND linked_gaps=[] AND linked_tasks=[] 的条目
+   - 输出 file_id + source_type + title
+
+2. **悬置主张 (>90d)**
+   - 扫描 claim_matrix 中 status='unsupported' 且 last_updated 距今 > 90 天的条目
+   - 输出 claim_id + statement + last_updated
+
+3. **陈旧缺口 (>180d)**
+   - 扫描 gap_register 中 linked_tasks=[] 且 created_at 距今 > 180 天的条目
+   - 输出 gap_id + description + created_at
+
+4. **待决策 (>30d)**
+   - 扫描 decision_log 中 status='pending' 的条目，检查 created_at
+   - 输出 decision_id + description + created_at
+
+5. **断链版本**
+   - 扫描 version_registry，检查每个 work_id 的版本链是否连续
+   - 输出 version 断链的 work_id
+
+#### 周报输出格式
+
+输出：`outputs/weekly_health_report_YYYYMMDD.md`
+
+```markdown
+# Weekly Health Report – YYYY-MM-DD
+
+## 1. Orphan Sources
+- F20260601023 (meeting_note): "项目组会议 6/1" — 未链接到任何 claim/gap/task
+
+## 2. Aging Unsupported Claims (>90d)
+- C023: "Acoustic model outperforms human observers" — last updated: 2025-12-01
+
+## 3. Aging Gaps Without Tasks (>180d)
+- G010: "缺乏干季声学检测率对比数据" — created: 2025-11-15
+
+## 4. Pending Decisions (>30d)
+- D008: "是否采用 occupancy 模型作为主分析" — created: 2026-04-20
+
+## 5. Broken Version Chains
+- W_acoustic_model_2025: V003 references V001 as parent (V002 missing)
+
+## 6. Suggested Next Actions
+- [ ] 审查 C023 是否仍然重要，或降级并归档
+- [ ] 为 G010 创建 fieldwork 任务
+- [ ] 修复 W_acoustic_model_2025 版本链
+```
+
+### Curator：skill 自身版本演化
+
+RWKM skill 使用 curator 追踪版本变更：
+- 每次对五表 schema 或 pipeline 步骤做重大修改时，更新 version 字段
+- 在 registry/impact_log.md 写入一条 "skill_structure" 记录
+- curator 可追踪高频触发的修正类型和几乎不用的功能分支
+
+### Session Search：回溯历史决策
+
+需要了解历史决策时，用 `session_search` 而非重读整个 decision_log。
+搜索关键词：决策 ID (Dxxx)、claim ID、work_id。
 
 ## Common Pitfalls
 
@@ -329,3 +612,5 @@ wiki/index.md                      # Wiki 索引
 - [ ] decision_log 每个待决策有唯一 ID，不混入已自行处理的内容
 - [ ] wiki 页面引用均使用 file_id 或 claim_id
 - [ ] 每次新资料进入后 impact_log 有对应记录
+
+> **升级计划**: v2.5 升级方案见 `references/v2.5-upgrade-plan.md`
