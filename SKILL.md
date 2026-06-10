@@ -329,9 +329,20 @@ sections affected, suggested changes
 - **警惕**: 不判断来源可信度（个人博客 vs 机构报告）
 
 ### experiment_log
-- **提取**: 条件、过程、结果、异常、设备 ID、操作者
-- **处理**: 关联到对应 dataset 和 code，建立实验→数据→分析链条
-- **警惕**: 实验记录中的异常被忽略（可能是重要发现）
+- **提取**: 条件、过程、结果、异常、设备 ID、操作者、参数设置、运行时间戳、输入数据 file_id、输出数据 file_id
+- **处理**: 关联到对应 dataset 和 code，建立实验→数据→分析链条。**自动 provenance 追踪**：将实验提取的定量结果（效应量、p 值、置信区间、模型选择指标）写入 evidence_matrix，自动匹配到 claim_matrix 中的相关主张（匹配规则见 `references/experiment-provenance.md`）。实验异常同样登记为 evidence（direction='challenges' 或 reliability='needs_review'）。
+- **provenance 必填字段**：
+  ```json
+  "experiment_provenance": {
+    "method": "occupancy_model | distance_sampling | glm | hmsc | ...",
+    "parameters": {"key": "value"},
+    "input_data": ["F20260608001"],
+    "output_data": ["F20260608002"],
+    "runtime_env": "R 4.3.2 / unmarked 1.3.0",
+    "run_timestamp": "2026-06-08T14:30:00"
+  }
+  ```
+- **警惕**: 实验记录中的异常被忽略（可能是重要发现）；实验结果直接当作 claim 而跳过 evidence_matrix 登记
 
 ### figure
 - **提取**: 来源数据 file_id、生成方法（代码/工具）、图表意图
