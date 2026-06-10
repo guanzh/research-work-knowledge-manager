@@ -1,6 +1,6 @@
 ---
-name: goal-driven-research-system
-description: Use when any new research input (paper, data, code, notes, experiment, meeting, draft, web page, search result) enters the project. Evaluates impact on research goal, claims, evidence, gaps, and tasks. Maintains source registry, claim matrix, evidence matrix, gap register, and task backlog to continuously evolve the research project toward a defined output. Formerly research-work-knowledge-manager — the old name is kept as an alias.
+name: research-work-knowledge-manager
+description: Use when any new research input (paper, data, code, notes, experiment, meeting, draft, web page, search result) enters the project. Evaluates impact on research goal, claims, evidence, gaps, and tasks. Maintains source registry, claim matrix, evidence matrix, gap register, and task backlog to continuously evolve the research project toward a defined output.
 version: 2.5.0
 author: Hermes Agent
 license: MIT
@@ -8,7 +8,7 @@ metadata:
   hermes:
     tags: [research, knowledge-management, goal-driven, evidence-tracking, claim-matrix, gap-analysis, task-backlog]
     related_skills: [arxiv, deep-research, academic-paper, wildlife-manuscript-builder]
-    aliases: [research-work-knowledge-manager]
+    aliases: [goal-driven-research-system]
 ---
 
 # 目标驱动科研知识系统 (Goal-Driven Research Knowledge System)
@@ -216,7 +216,7 @@ ingest → classify → extract → evaluate → link → update → plan → re
 
 | 步骤 | 做什么 | 产出 |
 |------|--------|------|
-| **ingest** | 登记资料，生成 file_id，计算 checksum，记录 provenance，删除 inbox 原始文件 | source_registry 新条目 |
+| **ingest** | 登记资料，生成 file_id，计算 checksum，**先与已有 registry 条目比对 checksum**，记录 provenance，删除 inbox 原始文件 | source_registry 新条目 |
 | **classify** | 判断 source_type（13 种之一）、content_type、所属 project | source_registry 字段填充 |
 | **extract** | 提取主张、数据、方法、结论、限制、问题 | 临时 extracted_units |
 | **evaluate** | 判断可信度、相关性、时效性、impact_on_goal | impact 评估 |
@@ -262,7 +262,8 @@ sections affected, suggested changes
 ### dataset
 - **提取**: 数据来源、版本、变量列表、样本量、缺失值、异常值、处理流程、对应 code file_id
 - **处理**: 建立 provenance 链 generated_by → cleaned_by → analyzed_by → used_in_figure → used_in_claim
-- **警惕**: 不建立 provenance 链的 dataset 无法追溯分析结果来源
+**警惕**：不建立 provenance 链的 dataset 无法追溯分析结果来源
+- **重复 ingest（checksum 比对）**：ingest 前先计算新文件的 checksum，与 source_registry 中已有条目的 checksum 比对。若匹配，跳过 ingest 并告知用户文件已存在。不比对则可能在 workspace 重组后重复登记同一文件（仅路径不同）。
 
 ### code
 - **提取**: 代码目的、输入/输出 file_id、依赖环境、对应数据版本、生成图表、支持结果
@@ -643,6 +644,7 @@ RWKM skill 使用 curator 追踪版本变更：
 7. **替用户做决定**：需要专业判断的事项写入 decision_log，不自行裁决
 8. **Terminal 中文路径失败**：用 `execute_code` + Python `os`/`shutil`/`hashlib`
    - **特别注意中文引号**：文件名含 `""`（Unicode 全角引号）时，手写字符串常错用 ASCII `"` 导致 `FileNotFoundError`。解决：一律用 `os.listdir()` 获取精确文件名再操作，不要凭肉眼写出路径字符串。
+9. **Workspace 重组后分析脚本路径断裂**：重组将文件从项目根目录（如 `鸣叫记录表(1)(1)/`）移到 `sources/` 后，已有分析脚本（`.R`/`.py`/`.Rmd`）中硬编码的 `DATA_DIR` 路径会静默失效，指向不存在的位置或旧数据。重组后必须检查并更新分析脚本中的 `DATA_DIR` 路径，验证路径存在后再运行。
 
 ## Verification Checklist
 
