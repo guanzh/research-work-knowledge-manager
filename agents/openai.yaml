@@ -1,0 +1,7 @@
+interface:
+  display_name: "Research Judgment Knowledge Manager"
+  short_description: "Build a personal research knowledge base that improves judgment"
+  default_prompt: "Use $research-work-knowledge-manager to decide how this research input should change my current knowledge and what evidence I should seek next."
+
+policy:
+  allow_implicit_invocation: true
