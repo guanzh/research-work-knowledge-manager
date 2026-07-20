@@ -1,6 +1,6 @@
 ---
 name: research-work-knowledge-manager
-description: Manage a personal research knowledge system around research directions, questions, evidence, and judgment changes. Use when triaging or reading papers, turning papers/data/observations/meetings into durable research knowledge, synthesizing sources around a question, updating confidence and boundaries, deciding what evidence or literature to seek next, or auditing whether a knowledge base improves research decisions. Do not use merely to store files, track generic tasks, manage submissions, or produce standalone summaries.
+description: Manage a personal research knowledge system around projects, directions, questions, evidence, and judgment changes. Use when initializing a graduate student's or researcher's project from a broad topic, phenomenon, practical concern, or available field/data conditions; triaging or reading papers; turning papers/data/observations/meetings into durable research knowledge; synthesizing sources; deciding what evidence or literature to seek next; or auditing whether a knowledge base improves research decisions. Do not use merely to store files, track generic tasks, manage submissions, or produce standalone summaries.
 metadata:
   skill_type: judgment
 ---
@@ -14,22 +14,26 @@ metadata:
 围绕以下循环工作：
 
 ```text
-研究方向 → 研究问题 → 当前判断 → 新证据
+现实对象与条件 → 暂定研究方向 → 候选问题
+→ 当前优先问题 → 当前判断 → 新证据
 → 判断更新 → 未知与边界 → 下一项证据需求
 ```
 
 优先提高研究者定义问题、判断证据、识别边界、面对反证和更新认识的能力。不要把登记完整、笔记数量或目录整齐当作成功。
 
+不要要求研究者先提供精确问题才能开始。把精确问题视为初始化、阅读、观察和比较之后逐渐形成的产物。
+
 ## 核心契约
 
 1. 先读取工作区中的 `AGENTS.md`、索引、frontmatter 规范和来源写入边界。已有本地规则优先于本 skill 的通用结构。
-2. 先确认当前研究方向、活跃问题和已有判断。信息不足时提出一个暂定版本并明确标记，不把推测写成用户结论。
-3. 先判断新输入的位置和决策价值，再决定处理深度。不要平均处理所有材料。
-4. 区分来源事实、作者解释、Agent 推断和研究者判断。凡进入核心论证链的内容，都回到原始来源核验。
-5. 至少检验一个真正可能威胁当前判断的替代解释、反例或边界条件。
-6. 把稳定更新写入研究问题页或综合页。单篇笔记只作为来源层与稳定知识层之间的过渡物。
-7. 从未解决的不确定性生成下一项证据需求，同时说明何时应停止继续读文献。
-8. 低风险、可验证的来源信息可以直接更新；证据权重、置信变化、问题重定义等高价值判断先生成更新提案，等待研究者确认后再写入稳定知识。
+2. 研究项目尚未形成时，接受研究对象、现实困惑、兴趣、已有材料和条件限制作为起点，运行 `bootstrap`，不要逼迫用户伪造精确问题。
+3. 项目已经形成时，先确认当前研究方向、活跃问题和已有判断。信息不足时提出一个暂定版本并明确标记，不把推测写成用户结论。
+4. 先判断新输入的位置和决策价值，再决定处理深度。不要平均处理所有材料。
+5. 区分来源事实、作者解释、Agent 推断和研究者判断。凡进入核心论证链的内容，都回到原始来源核验。
+6. 至少检验一个真正可能威胁当前判断的替代解释、反例或边界条件。
+7. 把稳定更新写入研究问题页或综合页。单篇笔记只作为来源层与稳定知识层之间的过渡物。
+8. 从未解决的不确定性生成下一项证据需求，同时说明何时应停止继续读文献。
+9. 低风险、可验证的来源信息可以直接更新；证据权重、置信变化、问题重定义等高价值判断先生成更新提案，等待研究者确认后再写入稳定知识。
 
 ## 选择工作模式
 
@@ -37,6 +41,7 @@ metadata:
 
 | 模式 | 适用请求 | 必读参考 |
 |---|---|---|
+| `bootstrap` | 从模糊方向、现实对象或已有条件初始化个人研究课题项目 | [project-bootstrap.md](references/project-bootstrap.md)、[knowledge-model.md](references/knowledge-model.md)、[workspace-adaptation.md](references/workspace-adaptation.md) |
 | `orient` | 建立研究方向、问题地图或开题认知框架 | [knowledge-model.md](references/knowledge-model.md) |
 | `triage` | 判断一篇新论文或材料是否值得读、读到什么程度 | [paper-reading.md](references/paper-reading.md) |
 | `read` | 重建论文论证、选择性细读、核验核心证据 | [paper-reading.md](references/paper-reading.md)、[evidence-judgment.md](references/evidence-judgment.md) |
@@ -49,6 +54,8 @@ metadata:
 
 ## 通用判断流程
 
+项目尚未初始化时，先完成 `bootstrap` 的两阶段流程。项目已经具有暂定方向和候选问题后，再进入以下通用流程。
+
 ### 1. 明确问题
 
 先回答：
@@ -57,7 +64,7 @@ metadata:
 - 研究者目前怎样理解该问题？
 - 当前最关键的不确定性是什么？
 
-如果无法关联现有问题，判断它是在暴露新的重要维度，还是暂时无关。不要为了入库而勉强建立关系。
+如果用户只有研究方向或现实困惑，不要把“无法关联现有问题”判为无关，改用 `bootstrap`。只有在项目已经建立问题地图后，才判断新输入是在暴露新的重要维度，还是暂时无关。
 
 ### 2. 判断可能影响
 
@@ -110,6 +117,10 @@ metadata:
 
 按任务提供最小充分输出。
 
+### 项目初始化
+
+先输出项目初始化提案，包括现实起点、可用条件、暂定研究方向、2–4 个候选问题、一个当前优先问题、已知／假设／未知、初始证据需求和第一轮学习计划。研究者确认后，再按工作区规则创建五个最小项目页面。不要直接生成一份看似成熟的开题报告。
+
 ### 新材料分诊
 
 输出材料位置、与当前问题的关系、可能改变的判断、建议阅读深度、优先核验部分，以及“现在读／稍后读／不读”的明确建议。
@@ -138,6 +149,7 @@ metadata:
 - 不因一篇论文而静默重写长期研究方向。
 - 不把每个知识缺口自动转换成任务。
 - 不维护投稿状态、通用任务列表或完整文件版本链。
+- 不把项目初始化扩展为通用进度、人员或行政管理系统。
 - 不为低价值材料制造完整笔记。
 - 不把“我认为”添加到通用总结前冒充个人判断变化。
 
@@ -151,3 +163,4 @@ metadata:
 - 最强反证是否得到公平处理？
 - 下一项值得寻找的证据是否更具体？
 - 研究者下次能否独立复现这次判断过程？
+- 对初始化项目，研究者是否能说明当前优先问题为何只是暂定、替代问题是什么，以及下一步为什么先寻找这些证据？
